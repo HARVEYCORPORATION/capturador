@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Capturador de Zonas</title>
+<style>
+  :root{
+    --bg:#f4f5f7;
+    --card:#ffffff;
+    --ink:#1c2230;
+    --muted:#6b7480;
+    --line:#e2e5ea;
+    --field:#fafbfc;
+    --accent:#2b59c3;
+    --accent-ink:#ffffff;
+    --demanda:#15803d;        /* verde: RBR/DBR -> calls */
+    --demanda-bg:#e9f7ee;
+    --oferta:#c2410c;          /* rojo/naranja: DBD/RBD -> puts */
+    --oferta-bg:#fdeee6;
+    --danger:#b42318;
+    --ok:#15803d;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.10);
+    --radius:14px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--font);
+    background:var(--bg);
+    color:var(--ink);
+    line-height:1.45;
+    font-size:16px;
+    padding:0 0 64px;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:0 16px;}
+
+  header{
+    background:linear-gradient(180deg,#1c2230 0%,#222b3d 100%);
+    color:#fff;padding:20px 0 22px;margin-bottom:18px;
+    border-bottom:3px solid var(--accent);
+  }
+  header .wrap{display:flex;flex-direction:column;gap:4px;}
+  header h1{margin:0;font-size:21px;letter-spacing:.2px;font-weight:650;}
+  header p{margin:0;font-size:13px;color:#aeb6c4;}
+  .who{display:flex;align-items:center;gap:8px;margin-top:12px;}
+  .who label{font-size:12px;color:#aeb6c4;white-space:nowrap;}
+  .who input{
+    flex:1;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
+    color:#fff;border-radius:9px;padding:7px 10px;font-size:14px;font-family:var(--font);
+  }
+  .who input::placeholder{color:#8b94a4;}
+
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:18px;margin-bottom:18px;
+  }
+  .card h2{margin:0 0 14px;font-size:15px;font-weight:650;letter-spacing:.2px;}
+  .card h2 .edit-flag{color:var(--accent);font-weight:650;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 12px;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field.full{grid-column:1 / -1;}
+  .field label{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.2px;}
+  .field label .req{color:var(--danger);}
+  input[type=text],input[type=number],input[type=date],select,textarea{
+    width:100%;background:var(--field);border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;font-size:16px;color:var(--ink);font-family:var(--font);
+    transition:border-color .12s,box-shadow .12s;
+  }
+  input:focus,select:focus,textarea:focus{
+    outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(43,89,195,.14);
+  }
+  input.bad,select.bad{border-color:var(--danger);box-shadow:0 0 0 3px rgba(180,35,24,.12);}
+  textarea{resize:vertical;min-height:74px;font-size:15px;line-height:1.5;}
+  select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%236b7480' stroke-width='1.6' stroke-linecap='round'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:34px;}
+
+  .dir-badge{
+    grid-column:1 / -1;display:flex;align-items:center;gap:9px;
+    border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;
+    border:1px solid transparent;
+  }
+  .dir-badge .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+  .dir-badge.demanda{background:var(--demanda-bg);color:var(--demanda);border-color:#bfe6cc;}
+  .dir-badge.demanda .dot{background:var(--demanda);}
+  .dir-badge.oferta{background:var(--oferta-bg);color:var(--oferta);border-color:#f6d2bf;}
+  .dir-badge.oferta .dot{background:var(--oferta);}
+  .dir-badge.none{background:#f1f2f4;color:var(--muted);border-color:var(--line);}
+  .dir-badge.none .dot{background:var(--muted);}
+
+  .err{grid-column:1 / -1;color:var(--danger);font-size:13px;font-weight:600;display:none;}
+  .err.show{display:block;}
+
+  .actions{display:flex;gap:10px;margin-top:16px;}
+  button{font-family:var(--font);cursor:pointer;border:none;border-radius:11px;font-size:15px;font-weight:650;padding:13px 16px;transition:transform .04s,filter .12s,background .12s;}
+  button:active{transform:translateY(1px);}
+  .btn-primary{background:var(--accent);color:var(--accent-ink);flex:1;}
+  .btn-primary:hover{filter:brightness(1.06);}
+  .btn-ghost{background:#eceef1;color:var(--ink);}
+  .btn-ghost:hover{background:#e2e5ea;}
+
+  .list-head{display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 10px;}
+  .list-head h2{margin:0;font-size:15px;font-weight:650;}
+  .list-head .count{font-size:13px;color:var(--muted);font-weight:600;}
+
+  .empty{
+    text-align:center;color:var(--muted);font-size:14px;padding:26px 10px;
+    border:1px dashed var(--line);border-radius:var(--radius);background:#fbfcfd;
+  }
+
+  .zone{
+    background:var(--card);border:1px solid var(--line);border-left:4px solid var(--muted);
+    border-radius:12px;box-shadow:var(--shadow);padding:13px 14px;margin-bottom:11px;
+  }
+  .zone.demanda{border-left-color:var(--demanda);}
+  .zone.oferta{border-left-color:var(--oferta);}
+  .zone-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .zone-ticker{font-size:17px;font-weight:700;letter-spacing:.3px;}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:999px;}
+  .tag.form{background:#eef1f6;color:#374151;}
+  .tag.dir-demanda{background:var(--demanda-bg);color:var(--demanda);}
+  .tag.dir-oferta{background:var(--oferta-bg);color:var(--oferta);}
+  .tag.tf{background:#f1f2f4;color:var(--muted);}
+  .zone-meta{font-size:13px;color:var(--muted);margin-top:7px;font-family:var(--mono);}
+  .zone-meta b{color:var(--ink);font-weight:600;}
+  .zone-note{font-size:14px;color:#3a4250;margin-top:8px;white-space:pre-wrap;word-break:break-word;}
+  .zone-foot{display:flex;align-items:center;justify-content:space-between;margin-top:11px;padding-top:10px;border-top:1px solid var(--line);}
+  .zone-when{font-size:11px;color:#9aa2af;}
+  .zone-btns{display:flex;gap:8px;}
+  .mini{font-size:13px;font-weight:600;padding:7px 12px;border-radius:9px;}
+  .mini.edit{background:#eef1f6;color:var(--accent);}
+  .mini.del{background:#fdeeec;color:var(--danger);}
+
+  .export{display:flex;gap:10px;}
+  .export .btn-primary{flex:1;}
+  .export-note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5;}
+
+  .toast{
+    position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(20px);
+    background:#1c2230;color:#fff;padding:11px 18px;border-radius:11px;font-size:14px;font-weight:600;
+    box-shadow:0 8px 24px rgba(16,24,40,.28);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;max-width:90vw;text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  @media (max-width:430px){
+    .grid{grid-template-columns:1fr 1fr;}
+    header h1{font-size:19px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Capturador de Zonas</h1>
+    <p>Apunta zonas que ves en tu plataforma · funciona sin internet · se guarda en este dispositivo</p>
+    <div class="who">
+      <label for="autor">Capturado por</label>
+      <input type="text" id="autor" placeholder="Marcelo" autocomplete="off">
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- FORM -->
+  <div class="card">
+    <h2 id="formTitle">Nueva zona</h2>
+    <div class="grid">
+      <div class="field">
+        <label for="ticker">Ticker <span class="req">*</span></label>
+        <input type="text" id="ticker" placeholder="p.ej. AVGO" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="timeframe">Timeframe <span class="req">*</span></label>
+        <select id="timeframe">
+          <option value="15m">15m</option>
+          <option value="60m" selected>60m</option>
+          <option value="120m">120m</option>
+          <option value="240m">240m</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="fecha">Fecha <span class="req">*</span></label>
+        <input type="date" id="fecha">
+      </div>
+      <div class="field">
+        <label for="formacion">Formación <span class="req">*</span></label>
+        <select id="formacion">
+          <option value="" selected disabled>Elegir…</option>
+          <option value="RBR">RBR (demanda · calls)</option>
+          <option value="DBR">DBR (demanda · calls)</option>
+          <option value="DBD">DBD (oferta · puts)</option>
+          <option value="RBD">RBD (oferta · puts)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="proximal">Proximal aprox <span class="req">*</span></label>
+        <input type="number" id="proximal" placeholder="0.00" step="any" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="distal">Distal aprox <span class="req">*</span></label>
+        <input type="number" id="distal" placeholder="0.00" step="any" inputmode="decimal">
+      </div>
+
+      <div class="dir-badge none" id="dirBadge"><span class="dot"></span><span id="dirText">Elige formación para ver la dirección</span></div>
+
+      <div class="field full">
+        <label for="matices">Por qué te gusta / matices</label>
+        <textarea id="matices" placeholder="Lo que veas: fuerza de la salida, gap, toques, contexto, dudas…"></textarea>
+      </div>
+
+      <div class="err" id="err"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" id="addBtn" onclick="addOrSave()">Añadir zona</button>
+      <button class="btn-ghost" id="cancelBtn" onclick="cancelEdit()" style="display:none;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- LIST -->
+  <div class="list-head">
+    <h2>Zonas capturadas</h2>
+    <span class="count" id="count">0 zonas</span>
+  </div>
+  <div id="list"></div>
+
+  <!-- EXPORT -->
+  <div class="card" style="margin-top:18px;">
+    <h2>Exportar y enviar</h2>
+    <div class="export">
+      <button class="btn-primary" onclick="exportJSON()">Exportar JSON</button>
+      <button class="btn-ghost" onclick="exportCSV()">Exportar CSV</button>
+    </div>
+    <p class="export-note">Descarga el archivo y envíaselo a Adrià por WhatsApp o email. El JSON es el formato preferido (lo procesamos directo); el CSV sirve para echarle un ojo rápido.</p>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+var STORAGE_KEY = "capturador_zonas_marcelo_v1";
+var AUTOR_KEY = "capturador_zonas_marcelo_autor_v1";
+var zones = [];
+var editingId = null;
+
+function dirOf(form){
+  if(form === "RBR" || form === "DBR") return {key:"demanda", label:"Demanda · calls (precio sube)"};
+  if(form === "DBD" || form === "RBD") return {key:"oferta", label:"Oferta · puts (precio baja)"};
+  return null;
+}
+
+function load(){
+  try{
+    var raw = localStorage.getItem(STORAGE_KEY);
+    zones = raw ? JSON.parse(raw) : [];
+    if(!Array.isArray(zones)) zones = [];
+  }catch(e){ zones = []; }
+  try{
+    var a = localStorage.getItem(AUTOR_KEY);
+    if(a) document.getElementById("autor").value = a;
+  }catch(e){}
+}
+function save(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(zones)); }
+  catch(e){ toast("No se pudo guardar en este dispositivo"); }
+}
+function saveAutor(){
+  try{ localStorage.setItem(AUTOR_KEY, document.getElementById("autor").value.trim()); }catch(e){}
+}
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+
+function updateDirBadge(){
+  var form = document.getElementById("formacion").value;
+  var d = dirOf(form);
+  var badge = document.getElementById("dirBadge");
+  var txt = document.getElementById("dirText");
+  if(!d){ badge.className = "dir-badge none"; txt.textContent = "Elige formación para ver la dirección"; return; }
+  badge.className = "dir-badge " + d.key;
+  txt.textContent = d.label;
+}
+
+function showErr(msg, ids){
+  var e = document.getElementById("err");
+  e.textContent = msg; e.classList.add("show");
+  ["ticker","timeframe","fecha","formacion","proximal","distal"].forEach(function(id){
+    document.getElementById(id).classList.remove("bad");
+  });
+  (ids||[]).forEach(function(id){ document.getElementById(id).classList.add("bad"); });
+}
+function clearErr(){
+  document.getElementById("err").classList.remove("show");
+  ["ticker","timeframe","fecha","formacion","proximal","distal"].forEach(function(id){
+    document.getElementById(id).classList.remove("bad");
+  });
+}
+
+function addOrSave(){
+  var ticker = document.getElementById("ticker").value.trim().toUpperCase();
+  var timeframe = document.getElementById("timeframe").value;
+  var fecha = document.getElementById("fecha").value;
+  var formacion = document.getElementById("formacion").value;
+  var proximalRaw = document.getElementById("proximal").value.trim();
+  var distalRaw = document.getElementById("distal").value.trim();
+  var matices = document.getElementById("matices").value.trim();
+
+  if(!ticker){ return showErr("Falta el ticker.", ["ticker"]); }
+  if(!fecha){ return showErr("Falta la fecha.", ["fecha"]); }
+  if(!formacion){ return showErr("Elige la formación (RBR/DBR/DBD/RBD).", ["formacion"]); }
+  if(proximalRaw === "" || isNaN(Number(proximalRaw))){ return showErr("Proximal debe ser un número.", ["proximal"]); }
+  if(distalRaw === "" || isNaN(Number(distalRaw))){ return showErr("Distal debe ser un número.", ["distal"]); }
+  clearErr();
+
+  var d = dirOf(formacion);
+  var rec = {
+    ticker: ticker,
+    timeframe: timeframe,
+    fecha: fecha,
+    formacion: formacion,
+    direccion: d ? d.key : null,
+    proximal_aprox: Number(proximalRaw),
+    distal_aprox: Number(distalRaw),
+    matices: matices
+  };
+
+  if(editingId){
+    for(var i=0;i<zones.length;i++){
+      if(zones[i].id === editingId){
+        rec.id = editingId;
+        rec.captured_at = zones[i].captured_at;
+        rec.updated_at = new Date().toISOString();
+        zones[i] = rec;
+        break;
+      }
+    }
+    toast("Zona actualizada");
+  }else{
+    rec.id = Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+    rec.captured_at = new Date().toISOString();
+    zones.unshift(rec);
+    toast("Zona añadida");
+  }
+  save();
+  render();
+  resetForm();
+}
+
+function resetForm(){
+  editingId = null;
+  document.getElementById("ticker").value = "";
+  document.getElementById("proximal").value = "";
+  document.getElementById("distal").value = "";
+  document.getElementById("matices").value = "";
+  document.getElementById("formacion").value = "";
+  // timeframe & fecha se mantienen para capturar varias seguidas más rápido
+  if(!document.getElementById("fecha").value){
+    document.getElementById("fecha").value = todayStr();
+  }
+  updateDirBadge();
+  clearErr();
+  document.getElementById("formTitle").innerHTML = "Nueva zona";
+  document.getElementById("addBtn").textContent = "Añadir zona";
+  document.getElementById("cancelBtn").style.display = "none";
+}
+
+function cancelEdit(){ resetForm(); }
+
+function editZone(id){
+  var z = null;
+  for(var i=0;i<zones.length;i++){ if(zones[i].id===id){ z = zones[i]; break; } }
+  if(!z) return;
+  editingId = id;
+  document.getElementById("ticker").value = z.ticker;
+  document.getElementById("timeframe").value = z.timeframe;
+  document.getElementById("fecha").value = z.fecha;
+  document.getElementById("formacion").value = z.formacion;
+  document.getElementById("proximal").value = z.proximal_aprox;
+  document.getElementById("distal").value = z.distal_aprox;
+  document.getElementById("matices").value = z.matices || "";
+  updateDirBadge();
+  clearErr();
+  document.getElementById("formTitle").innerHTML = 'Editando zona <span class="edit-flag">· ' + esc(z.ticker) + '</span>';
+  document.getElementById("addBtn").textContent = "Guardar cambios";
+  document.getElementById("cancelBtn").style.display = "block";
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function deleteZone(id){
+  var z = null;
+  for(var i=0;i<zones.length;i++){ if(zones[i].id===id){ z = zones[i]; break; } }
+  if(!z) return;
+  if(!confirm("¿Borrar la zona " + z.ticker + " (" + z.formacion + ", " + z.fecha + ")?")) return;
+  zones = zones.filter(function(x){ return x.id !== id; });
+  if(editingId === id) resetForm();
+  save();
+  render();
+  toast("Zona borrada");
+}
+
+function fmtWhen(iso){
+  try{
+    var dt = new Date(iso);
+    var p = function(n){ return (n<10?"0":"")+n; };
+    return p(dt.getDate())+"/"+p(dt.getMonth()+1)+"/"+dt.getFullYear()+" "+p(dt.getHours())+":"+p(dt.getMinutes());
+  }catch(e){ return ""; }
+}
+
+function render(){
+  var list = document.getElementById("list");
+  var count = document.getElementById("count");
+  count.textContent = zones.length + (zones.length===1 ? " zona" : " zonas");
+  if(zones.length === 0){
+    list.innerHTML = '<div class="empty">Todavía no has capturado ninguna zona.<br>Rellena el formulario y pulsa <b>Añadir zona</b>.</div>';
+    return;
+  }
+  var html = "";
+  for(var i=0;i<zones.length;i++){
+    var z = zones[i];
+    var dirKey = z.direccion || (dirOf(z.formacion) ? dirOf(z.formacion).key : "");
+    var dirTag = dirKey === "demanda"
+      ? '<span class="tag dir-demanda">CALLS</span>'
+      : (dirKey === "oferta" ? '<span class="tag dir-oferta">PUTS</span>' : "");
+    var note = z.matices ? '<div class="zone-note">'+esc(z.matices)+'</div>' : "";
+    var edited = z.updated_at ? ' · editada '+fmtWhen(z.updated_at) : "";
+    html +=
+      '<div class="zone '+esc(dirKey)+'">'+
+        '<div class="zone-top">'+
+          '<span class="zone-ticker">'+esc(z.ticker)+'</span>'+
+          '<span class="tag form">'+esc(z.formacion)+'</span>'+
+          dirTag+
+          '<span class="tag tf">'+esc(z.timeframe)+'</span>'+
+        '</div>'+
+        '<div class="zone-meta"><b>'+esc(z.fecha)+'</b> &nbsp;·&nbsp; prox <b>'+esc(z.proximal_aprox)+'</b> &nbsp;/&nbsp; dist <b>'+esc(z.distal_aprox)+'</b></div>'+
+        note+
+        '<div class="zone-foot">'+
+          '<span class="zone-when">capturada '+fmtWhen(z.captured_at)+edited+'</span>'+
+          '<span class="zone-btns">'+
+            '<button class="mini edit" onclick="editZone(\''+z.id+'\')">Editar</button>'+
+            '<button class="mini del" onclick="deleteZone(\''+z.id+'\')">Borrar</button>'+
+          '</span>'+
+        '</div>'+
+      '</div>';
+  }
+  list.innerHTML = html;
+}
+
+function buildExportObject(){
+  var autor = document.getElementById("autor").value.trim() || "Marcelo";
+  var clean = zones.map(function(z){
+    return {
+      ticker: z.ticker,
+      timeframe: z.timeframe,
+      fecha: z.fecha,
+      formacion: z.formacion,
+      direccion: z.direccion,
+      proximal_aprox: z.proximal_aprox,
+      distal_aprox: z.distal_aprox,
+      matices: z.matices || "",
+      captured_at: z.captured_at,
+      updated_at: z.updated_at || null
+    };
+  });
+  return {
+    fuente: "capturador_zonas",
+    proposito: "candidatas a ground truth - valores prox/distal APROXIMADOS (a refinar mecha-a-mecha)",
+    capturado_por: autor,
+    generado: new Date().toISOString(),
+    n_zonas: clean.length,
+    zonas: clean
+  };
+}
+
+function stamp(){
+  var d = new Date();
+  var p = function(n){ return (n<10?"0":"")+n; };
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes());
+}
+
+function download(filename, text, mime){
+  try{
+    var blob = new Blob([text], {type: mime});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+  }catch(e){ toast("No se pudo exportar"); }
+}
+
+function exportJSON(){
+  if(zones.length === 0){ toast("No hay zonas que exportar"); return; }
+  var autor = (document.getElementById("autor").value.trim() || "marcelo").toLowerCase().replace(/[^a-z0-9]+/g,"-");
+  var data = JSON.stringify(buildExportObject(), null, 2);
+  download("zonas_" + autor + "_" + stamp() + ".json", data, "application/json");
+  toast(zones.length + " zonas exportadas (JSON)");
+}
+
+function exportCSV(){
+  if(zones.length === 0){ toast("No hay zonas que exportar"); return; }
+  var autor = document.getElementById("autor").value.trim() || "Marcelo";
+  var cols = ["ticker","timeframe","fecha","formacion","direccion","proximal_aprox","distal_aprox","matices","captured_at","capturado_por"];
+  var q = function(v){
+    var s = (v===null||v===undefined) ? "" : String(v);
+    if(/[",\n;]/.test(s)){ s = '"' + s.replace(/"/g,'""') + '"'; }
+    return s;
+  };
+  var rows = [cols.join(",")];
+  for(var i=0;i<zones.length;i++){
+    var z = zones[i];
+    rows.push([z.ticker,z.timeframe,z.fecha,z.formacion,z.direccion,z.proximal_aprox,z.distal_aprox,z.matices||"",z.captured_at,autor].map(q).join(","));
+  }
+  var autorFile = autor.toLowerCase().replace(/[^a-z0-9]+/g,"-");
+  download("zonas_" + autorFile + "_" + stamp() + ".csv", rows.join("\n"), "text/csv");
+  toast(zones.length + " zonas exportadas (CSV)");
+}
+
+var toastTimer = null;
+function toast(msg){
+  var t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 1900);
+}
+
+function todayStr(){
+  var d = new Date();
+  var p = function(n){ return (n<10?"0":"")+n; };
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());
+}
+
+// init
+document.getElementById("formacion").addEventListener("change", updateDirBadge);
+document.getElementById("autor").addEventListener("input", saveAutor);
+document.getElementById("ticker").addEventListener("input", function(){ this.value = this.value.toUpperCase(); });
+load();
+render();
+if(!document.getElementById("fecha").value) document.getElementById("fecha").value = todayStr();
+updateDirBadge();
+</script>
+</body>
+</html>
